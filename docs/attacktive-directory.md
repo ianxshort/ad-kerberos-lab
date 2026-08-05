@@ -1,6 +1,6 @@
 ## Target: Attacktive Directory (Windows Active Directory Domain)
 ## Platform: TryHackMe
-## Date: 
+## Date: 07/26/26
 ## Difficulty: Medium
 ## Tools: 
 - Nmap
