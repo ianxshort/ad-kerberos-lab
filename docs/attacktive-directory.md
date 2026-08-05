@@ -42,14 +42,32 @@ Although, Kerbrute automatically retrieved the AS-REP hash during enumeration, w
 
 ### Exploitation (AS-REP Roasting)
 
+Unauthenticated AS-REP's are highly sensitive Because they are encrypted using a user's long-term key or password. We first save the returned hash into a dedicated file. 
+
 ![hash-file](../images/attacktive-directory/hash-file.jpeg)
+
+We used hashcat, a password cracking tool, and a provided Password list to recover the `svc-admin` user's password. By using the `-m 18200` it tells hashcat which algorithm the hash was produced with. 
 
 ![hashcat](../images/attacktive-directory/hashcat.jpeg)
 
+![hashcat-output](../images/attacktive-directory/svc-admin-cracked.jpeg)
+
+Hashcat successfully cracks the `$krb5asrep$` hash completing credential set
+
+- Username: svc-admin
+- Password: management2005
 
 
 
 ### Authenticated Enumeration
+
+Using the previously obtained credentials we attempt to enumerate any shares the domain controller might be giving out. We use the Impacket tool `smbclient.py`, which allows you to interact with remote SMB network file shares 
+
+
+
+The server lists six different remote shares. After looking through the shares we find a file named `backup_credentials.txt` in the backup share.
+
+
 
 
 ### Privilege Escalation
