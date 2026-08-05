@@ -13,6 +13,8 @@
 - Evil-WinRM
 - Hashcat
 
+---
+
 ### Unauthenticated Enumeration
 
 We begin by enumerating the target machine using `nmap`, a network scanning utility used to detect open ports and, with the `-sV` flag, the services running on those ports 
@@ -28,6 +30,7 @@ We then performed further enumeration using enum4linux-ng, a common tool used to
 
 The tool provided further confirmation that the target machine was a Domain Controller
 
+---
 
 #### Enumeration Using Kerberos 
 
@@ -39,6 +42,8 @@ Kerbrute returned several valid usernames, but most notably `svc-admin` and it's
 
 
 Although, Kerbrute automatically retrieved the AS-REP hash during enumeration, we verified the finding using Impacket's `GetNPUsers.py`, which returned the same exact hash for the `svc-admin` account 
+
+---
 
 ### Exploitation (AS-REP Roasting)
 
@@ -57,26 +62,63 @@ Hashcat successfully cracks the `$krb5asrep$` hash completing credential set
 - Username: svc-admin
 - Password: management2005
 
-
+---
 
 ### Authenticated Enumeration
 
 Using the previously obtained credentials we attempt to enumerate any shares the domain controller might be giving out. We use the Impacket tool `smbclient.py`, which allows you to interact with remote SMB network file shares 
 
-
+![SMB-Client](../images/attacktive-directory/smb-client.jpeg)
 
 The server lists six different remote shares. After looking through the shares we find a file named `backup_credentials.txt` in the backup share.
 
+![Backup-Cred](../images/attacktive-directory/backup-creds.jpeg)
 
+We use the `get` command to download the credential file from the remote share
 
+Outputting the credential file to the terminal reveals the content is encoded via base 64. We can decode the encoded test using the `base64 -d` command
+
+![Decode-Creds](../images/attacktive-directory/decode.jpeg)
+
+Decoded Credentials 
+- Username: backup
+- Password: backup2517860
 
 ### Privilege Escalation
 
+After receiving the credentials for the `backup` account the next step is to find out the privileges of the account. ADUC Security tab for the backup account reveals two major permissions explicitly delegated 
+
+![Permissions-Backup](../images/attacktive-directory/backup-permissions.jpeg)
+
+- `Replicating Directory Changes`
+- `Replicating Directroy Changes All`
+
+These combined permissions grant the right invoke DRSUAPI's replication function (DRSGETNCChanges). We used Impacket's `secretsdump.py`, which calls this function internally, to retreive all domain credentials using only the `backup` account's credentials.
+
+
+[!Secrets-Dump](../images/attacktive-directory/secretsdump.jpeg)
+
+`secretsdump.py` dumped all content from NTDS.dit, including user's NTLM hashes and Kerberos long-term keys. 
 
 ### Post Exploitation (Flag Capture)
 
+Using the previously obtained Administrator's NT hash and `evil-winrm`, we authenticated to the DC's WinRM service via pass-the-hash. 
 
+![Remote-Shell](../images/attacktive-directory/remote-shell.jpeg)
 
+With the remote PowerShell shell we navigated through directories and obtained the flags of accounts: `svc-admin`, `backup`, and `Administrator`
+
+**svc-admin Flag**
+
+![svc-admin-Flag](../images/attacktive-directory/svc-admin-flag.jpeg)
+
+**backup Flag**
+
+![Backup-Flag](../images/attacktive-directory/backup-flag.jpeg)
+
+**Administrator Flag**
+
+![Admin-Flag](../images/attacktive-directory/admin-flag.jpeg)
 
 
 
