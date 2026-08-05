@@ -31,10 +31,21 @@ The tool provided further confirmation that the target machine was a Domain Cont
 
 #### Enumeration Using Kerberos 
 
+In our continued search for an inital set of credentials we utilized Kerbrute to find valid account usernames. In this lab we used  Kerbrute's `userenum` and the room's provided User list to validate usernames against the domain. In short, Userenum uses Kerberos response behaviors to validate usernames.
+
+![Kerbute](../images/attacktive-directory/kerbrute.jpeg)
+
+Kerbrute returned several valid usernames, but most notably `svc-admin` and it's Kerberos 5 AS-REP Roast hash. Kerbrute sent an `AS-REQ` to the KDC. Because svc-admin was configured to not require Keberos pre-authentication, the KDC immediately responded with an `AS-REP` without first verifying the knowledge of the user's password. Kerbrute extracted the returned `$krb5asrep$` hash, allowing for it to be cracked offline.
 
 
+Although, Kerbrute automatically retrieved the AS-REP hash during enumeration, we verified the finding using Impacket's `GetNPUsers.py`, which returned the same exact hash for the `svc-admin` account 
 
 ### Exploitation (AS-REP Roasting)
+
+![hash-file](../images/attacktive-directory/hash-file.jpeg)
+
+![hashcat](../images/attacktive-directory/hashcat.jpeg)
+
 
 
 
