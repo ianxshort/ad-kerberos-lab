@@ -6,7 +6,7 @@
 
 ### Environment & Architecture
 
-This lab environment consists of a Active Directory Environment hosted on a 2022 Windows Server in Azure. The result is a publically accessible domain controller secured via a source restricted NSG. 
+This lab environment consists of a Active Directory Domain hosted on a 2022 Windows Server Virtual Machine in Microsoft Azure. The result is a publically accessible domain controller secured via a source restricted NSG. 
 
 This section covers the details of the AD lab infastructure: 
 
@@ -48,9 +48,13 @@ macOS Host (2023 MacBook Pro, Apple Silicon, 8GB RAM)
 
     └── Kali Linux — ARM64 build (native, no TCG emulation)
 
+#### Infrastructure Provisioning Challenges 
+
+This Azure build was only reached after two earlier infrastructure build implementations failed. (1) Azure Students free tier - Failed after student account creation restrictions. (2) Local UTM - My Mac runs ARM64 architecture and Windows Server is built natively for x86_64 architecture. This added an emulation layer dedicated to translating instructions from one architecture to another in real time. This additional translation layer is inherently slow and fragile by nature, and it produced two separate failures across two different configuration attempts (Q35 chipset + UEFI firmware, i440FX chipset + legacy BIOS)
 
 
 ### Building the Domain
+
 
 
 ### Creating the Vulnerability
