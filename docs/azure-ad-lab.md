@@ -110,11 +110,33 @@ By registering `svc_backup` it transformed the account from a inactive account t
 
 ### Kali Preparation
 
-With the target environment configured, I prepared the Kali Linux system that would be used to perform the attack. I started by installing the necessary tools 
+With the target environment configured, I prepared the Kali Linux system that would be used to perform the attack. 
+I started by installing the necessary tools 
 
 ```bash
 sudo apt install -y krb5-user hashcat smbclient ldap-utils
 ```
+
+DNS was configured via NetworkManager to avoid silent overwrites on `/etc/resolv.conf`. 
+
+```bash
+sudo nmcli con mod "Wired connection 1" ipv4.dns "57.162.245.77"
+sudo nmcli con mod "Wired connection 1" ipv4.ignore-auto-dns yes
+sudo nmcli con up "Wired connection 1”
+```
+
+The first command ensures that whenever Kali needs to resolve names it asks our domain controller instead of a public DNS server. The second command ensures that DHCP doesn't overwrite our manually configured DNS server. The third command applies the changes by reconnecting the network connection using the new settings.
+
+Verified with: 
+
+```bash
+dig ad.lab @57.162.245.77
+```
+
+
+#### Establishing a Diagnostic Baseline
+
+Before using Impacket for Kerberos Authentication I wanted to establish a diagnostic baseline using native Kerberos tooling. This way, if Impacket's Kerberos implementation failed I would know that the problem was specific to Impacket rather than the environment.
 
 In order to interact with the domain controller's Kerberos service the Kali machine needs the necessary tools. `krb5-user` installs MIT Keberos client tools, which we can use to communicate with the DC01's domain controler. In our case, the tools `kinit` and `klist` allow us to request a Ticket Granting Ticket (TGT) and view the ticket respectively. 
 
@@ -122,12 +144,22 @@ After installing `krb5-user` I examined the contents of `/etc/krb5.conf`, a conf
 
 ![rewrite-stock](../images/azure-lab/manual-rewrite.jpeg)
 
-With `krb5.conf` corrected, I requesting a TGT using Alice's account and the `kinit` tool. Using Alice's known password I successfully authenticated. To confirm the existence of the TGT I used the `klist` command which displays all active Kerberos tickets for the current user session. `klist` displayed a valid `krbtgt/AD.LAD@AD.LAB` entry. This confirmed not only successful DNS resolution and network reachability but also provided credentials that would be used downstream.
+With `krb5.conf` corrected, I requesting a TGT using Alice's account and the `kinit` tool. Using Alice's known password I successfully authenticated. To confirm the existence of the TGT I used the `klist` command which displays all active Kerberos tickets for the current user session. `klist` displayed a valid `krbtgt/AD.LAD@AD.LAB` entry. This confirmed not only successful DNS resolution and network reachability but also provided credentials. 
+ 
 
 ![kinit](../images/azure-lab/kinit.jpeg)
 
+> It is worth noting that this TGT played no part in the actual kerberoasting attack - `GetUserSPNs.py` performed its own independant authentication using Alice's password directly.
+
 
 ### Attack Execution
+
+After establishing a diagnostic baseline it was time to perform the extraction command using Impacket's `GetUserSPNs.py`. This tool 
+
+
+![GetUserSPNS](../images/azure-lab/getuserspns.jpeg)
+
+
 
 
 ### Network Troubleshooting (445/5985)
