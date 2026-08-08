@@ -154,15 +154,71 @@ With `krb5.conf` corrected, I requesting a TGT using Alice's account and the `ki
 
 ### Attack Execution
 
-After establishing a diagnostic baseline it was time to perform the extraction command using Impacket's `GetUserSPNs.py`. This tool 
-
+After establishing a diagnostic baseline it was time to perform the extraction command using Impacket's `GetUserSPNs.py`. This Impacket tool finds user accounts with SPNs and requests service tickets (TGSs) for them.
 
 ![GetUserSPNS](../images/azure-lab/getuserspns.jpeg)
 
+The extraction succeeded cleanly returning the `$krb5tgs$` hash for `svc_backup`. 
 
+
+#### Cracking
+
+With the `$krb5tgs$` hash in possesion it was time to crack it using `hashcat`. 
+
+> The extracted hash began `$krb5tgs$18$...` — etype 18 (AES256), not RC4 (my original plan). This is signifigantly more expensive to crack, which led to a slight deviation in execution
+
+After running 
+
+```bash
+hashcat -m 19700 kerberoast_hash.txt /usr/share/wordlists/rockyou.txt
+```
+A full `rockyou.txt` was projected to complete in ~8 hours. To combat time contraints I identified the password's placement using the `grep` command and created a more practical wordlist derived from the contents of `rockyou.txt`. 
+
+![pass-placement](../images/azure-lab/sunshine-placement.jpeg)
+
+
+
+**Practical Wordlist**
+
+![partial-wordlist](../images/azure-lab/partial-wordlist-creation.jpeg)
+
+Ran hashcat against the wordlist using mode `19700` 
+
+![hashcat](../images/azure-lab/hashcat.jpeg)
+
+Hashcat successfully cracked `$krb5tgs$` revealing `svc_backup` password
 
 
 ### Network Troubleshooting (445/5985)
+
+#### SMB troubleshoot 
+
+After successfully obtaining `svc_backup` credentials I attempted to remotely execute commands on the domain controller using `psexec.py`. This Impacket tool uses SMB to remotely execute commands on a Windows machine. 
+
+![Failed-psexec](../images/azure-lab/psexec-timeout.jpeg)
+
+The first attempt failed due to a connection timeout indicating that the TCP handshake to port 445 never completed. To investigate this I conducted a network scan using `nmap` on the domain controller.
+
+![Failed-Nmap](../images/azure-lab/nmap444-filtered.jpeg)
+
+The port state of SMB on the domain controller was filtered, meaning `nmap` couldn't determine whether the port was open or closed because it wasn't accessible. I investigated further on the DC; `Get-NetConnectionProfile` revealed the NIC was classified as `Public`, while the `File and Printer Sharing (SMB-In)` rule was scoped to `Domain, Private` only. This meant the rule never actually applied to this connection, despite showing `Enabled: True`. I corrected the scope with `Set-NetFirewallRule -Profile Any`, which did not resolve the timeout.
+
+![Firewall-Prof-Mismatch](../images/azure-lab/Firewall-prof-mismatch.jpeg)
+
+
+After correcting the firewall rule the timeout was still unresolved. To investigate whether the service was disabled or not I checked the `LanmanServer`, which is a service responsible for implementing SMB server functionality. `Get-Service LanmanServer` confirmed the service was running. `Get-NetTCPConnection` showed that SMB is running, but Windows wasn't listening for IPv4 connections. I then checked the SMB server configuration and found no obvious problems 
+
+![Examine-SMB](../images/azure-lab/Examine-SMB.jpeg)
+
+I continued by resolving the unexpected IPv4 problem by running `netstat -an | findstr :445`. This revealed listners on both IPv4 and IPv6 
+
+With every host-side layer confirmed correct, the timeout persisted, indicating the SMB traffic was blocked somewhere outside my control. With that considered, I pivoted to WinRM (port 5985) via `evil-winrm`, which offered an alternate path to remote execution. 
+
+
+#### WinRM TroubleShoot
+
+
+
 
 
 ### Privilege Boundary Finding
