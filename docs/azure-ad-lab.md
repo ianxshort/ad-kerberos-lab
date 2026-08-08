@@ -217,7 +217,21 @@ With every host-side layer confirmed correct, the timeout persisted, indicating 
 
 #### WinRM TroubleShoot
 
+Enabling a remote Powershell required two things on the DC01: A new NSG rule permitting inbound 5985 traffic from my home IP, and the WinRM listener itself.
 
+![WinRm-NSG](../images/azure-lab/third-firewall-redacted.jpeg)
+
+![Enable-Listener](images/azure-lab/Enable-listener.jpeg)
+
+After changing the NSG rules and enabling WinRM I ran an nmap scan on my Kali machine
+
+```bash
+nmap -Pn -p445,5985
+```
+
+Port 5985 experienced the same silent timeout observed on port 445. This indicated that something between the Kali Machine and DC01 was filtering the connections. 
+
+#### Temp Hotspot & Network-level Block Bypass
 
 
 
