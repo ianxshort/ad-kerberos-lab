@@ -59,6 +59,7 @@ To ensure the virtual network was reachable only from my machine, the NSG was co
 
 This Azure build was only reached after two earlier infrastructure build implementations failed. (1) Azure Students free tier - Failed after student account creation restrictions. (2) Local UTM - My Mac runs ARM64 architecture and Windows Server is built natively for x86_64 architecture. This added an emulation layer dedicated to translating instructions from one architecture to another in real time. This additional translation layer is inherently slow and fragile by nature, and it produced two separate failures across two different configuration attempts (Q35 chipset + UEFI firmware, i440FX chipset + legacy BIOS)
 
+---
 
 ### Building the Domain
 
@@ -81,20 +82,49 @@ Three user accounts `alice`, `svc_backup`, and `bob` were created to represent t
 
 ![User-Creation](../images/azure-lab/domain-users.jpeg)
 
-- `alice`: A standard already-compromised low-privilege user who was used to initiate the kerberoasting attack
+`alice`: A standard already-compromised low-privilege user who was used to initiate the kerberoasting attack
 
-- `svc_backup`: The SPN-holding account representing a fictional back up service and target of the Kerberoasting attack
+`svc_backup`: The SPN-holding account representing a fictional back up service and target of the Kerberoasting attack. 
 
-- `bob`: Roleless account created to represent the existence of  irrelevant accounts in any attack path
+**NOTE**
+Account configured with intentionally wordlist-crackable password `sunshine1!` (present in `rockyou.txt`) that satisfies AD default complexity.
+
+`bob`: Roleless account created to represent the existence of  irrelevant accounts in any attack path
 
 
 
-
+---
 
 ### Creating the Vulnerability
 
+Began by registering an SPN, mapping `svc_backup` to the fictional `backup-agent` service running on the domain controller (`dc01.ad.lab`).
+
+Completed registration and verified successful verification using `setspn` commands.
+
+![Set-Spn](../images/azure-lab/setspn.jpeg)
+
+By registering `svc_backup` it transformed the account from a inactive account to a Kerberoastable one.
+
+
+
 
 ### Kali Preparation
+
+With the target environment configured, I prepared the Kali Linux system that would be used to perform the attack. I started by installing the necessary tools 
+
+```bash
+sudo apt install -y krb5-user hashcat smbclient ldap-utils
+```
+
+In order to interact with the domain controller's Kerberos service the Kali machine needs the necessary tools. `krb5-user` installs MIT Keberos client tools, which we can use to communicate with the DC01's domain controler. In our case, the tools `kinit` and `klist` allow us to request a Ticket Granting Ticket (TGT) and view the ticket respectively. 
+
+After installing `krb5-user` I examined the contents of `/etc/krb5.conf`, a configuration file that maps a Kerberos realm name to it's authoritative KDC. A Kerberos Realm is an administrative boundary that defines the scope of authority of a KDC. The file was populated with stock MIT Kerberos defaults, such as (`Athena.MIT.EDU`). I deleted all of the irrelevant entries, definied the realm name, and mapped the KDC to my domain controller's IP address. 
+
+![rewrite-stock](../images/azure-lab/manual-rewrite.jpeg)
+
+With `krb5.conf` corrected, I requesting a TGT using Alice's account and the `kinit` tool. Using Alice's known password I successfully authenticated. To confirm the existence of the TGT I used the `klist` command which displays all active Kerberos tickets for the current user session. `klist` displayed a valid `krbtgt/AD.LAD@AD.LAB` entry. This confirmed not only successful DNS resolution and network reachability but also provided credentials that would be used downstream.
+
+![kinit](../images/azure-lab/kinit.jpeg)
 
 
 ### Attack Execution
