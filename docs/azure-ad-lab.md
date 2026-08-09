@@ -86,8 +86,7 @@ Three user accounts `alice`, `svc_backup`, and `bob` were created to represent t
 
 `svc_backup`: The SPN-holding account representing a fictional back up service and target of the Kerberoasting attack. 
 
-**NOTE**
-Account configured with intentionally wordlist-crackable password `sunshine1!` (present in `rockyou.txt`) that satisfies AD default complexity.
+> **NOTE**: Account configured with intentionally wordlist-crackable password `sunshine1!` (present in `rockyou.txt`) that satisfies AD default complexity.
 
 `bob`: Roleless account created to represent the existence of  irrelevant accounts in any attack path
 
@@ -99,14 +98,14 @@ Account configured with intentionally wordlist-crackable password `sunshine1!` (
 
 Began by registering an SPN, mapping `svc_backup` to the fictional `backup-agent` service running on the domain controller (`dc01.ad.lab`).
 
-Completed registration and verified successful verification using `setspn` commands.
+Completed registration and verified success using `setspn` commands.
 
 ![Set-Spn](../images/azure-lab/setspn.jpeg)
 
 By registering `svc_backup` it transformed the account from a inactive account to a Kerberoastable one.
 
 
-
+---
 
 ### Kali Preparation
 
@@ -151,6 +150,7 @@ With `krb5.conf` corrected, I requesting a TGT using Alice's account and the `ki
 
 > It is worth noting that this TGT played no part in the actual kerberoasting attack - `GetUserSPNs.py` performed its own independant authentication using Alice's password directly.
 
+---
 
 ### Attack Execution
 
@@ -188,6 +188,7 @@ Ran hashcat against the wordlist using mode `19700`
 
 Hashcat successfully cracked `$krb5tgs$` revealing `svc_backup` password
 
+---
 
 ### Network Troubleshooting (445/5985)
 
@@ -210,7 +211,7 @@ After correcting the firewall rule the timeout was still unresolved. To investig
 
 ![Examine-SMB](../images/azure-lab/Examine-SMB.jpeg)
 
-I continued by resolving the unexpected IPv4 problem by running `netstat -an | findstr :445`. This revealed listners on both IPv4 and IPv6 
+I continued by resolving the unexpected IPv4 problem by running `netstat -an | findstr :445`. This revealed listeners on both IPv4 and IPv6 
 
 With every host-side layer confirmed correct, the timeout persisted, indicating the SMB traffic was blocked somewhere outside my control. With that considered, I pivoted to WinRM (port 5985) via `evil-winrm`, which offered an alternate path to remote execution. 
 
@@ -221,20 +222,43 @@ Enabling a remote Powershell required two things on the DC01: A new NSG rule per
 
 ![WinRm-NSG](../images/azure-lab/third-firewall-redacted.jpeg)
 
-![Enable-Listener](images/azure-lab/Enable-listener.jpeg)
+![Enable-Listener](../images/azure-lab/Enable-listener.jpeg)
 
 After changing the NSG rules and enabling WinRM I ran an nmap scan on my Kali machine
 
 ```bash
-nmap -Pn -p445,5985
+nmap -Pn -p445,5985 57.162.245.77
 ```
 
 Port 5985 experienced the same silent timeout observed on port 445. This indicated that something between the Kali Machine and DC01 was filtering the connections. 
 
 #### Temp Hotspot & Network-level Block Bypass
 
+After both SMB and WinRM failed identically despite host-side layer confirmation, the only explanation was a network-level block happening outside of Azure. I assumed that the traffic was being blocked at either my home ISP or gateway. In order to test this I needed to obtain a different public IP from a different provider. I connected my computer to my phone's personal hotspot, giving Kali a completely different public IP. Before testing the new port state, I temporarily reconfigured the NSG rules to allow inbound connections from the hotspot's IP.
 
+![Temp-HotSpot-NSG](../images/azure-lab/temp-firewall-redacted.jpeg)
+
+> Removed immediately after testing to avoid unecessary exposure on the DC
+
+After reconfiguring the NSG rules, I ran a `nmap` scan for ports 445 and 5985 on DC01.
+
+
+![Hotspot-Nmap](../images/azure-lab/temp-hotspot-nmap.jpeg)
+
+This time, port 445 showed open, meaning the connection actually reached DC01 this time, unlike every other previousw attempt before.
+
+---
 
 ### Privilege Boundary Finding
+
+With the network-level block bypassed using the hotspot, I attempted to achieve remote execution using `psexec.py`.
+
+![Remote-Code-Execution](../images/azure-lab/remote-shell-success.jpeg)
+
+`psexec.py` successfully reached DC01 and authenticated as `svc_backup` with no errors. This confirmed that the previously cracked credentials were indeed valid. Despite authentication, `psexec.py` failed to find a writable share.
+
+`psexec.py` requires write permissions on administrative shares in order to complete code execution. That is because its method of code execution is (1) Upload executable (2) register it as a Windows service (3) Start the service. `svc_backup` did not have local administrative privileges on DC01 as it was standard service account. 
+
+
 
 
