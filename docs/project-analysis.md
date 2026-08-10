@@ -23,6 +23,7 @@
 * Monitor Active Directory 
     * `Event 4769`, the Kerberos Service Ticket request ID, is generally noisy as it is not uncommon for users to routinely request access to services. However, high volume of 4769 events from a single account within a short window should be flagged. Tools such as `GetUserSPNs.py` query Active Directory via LDAP for SPN-holding accounts, then request a TGS for each in rapid succession, producing a kind of burst pattern.
     * Watch for ticket requests using encryption type (RC4-HMAC): Tools will often ask for weaker/legacy encryption types because they are easier to crack offline
+    > Note this environment defaulted to AES256 which is already a mitigating factor against Kerberoasting's practical impact 
 
 
 * Enforce Group Managed Service Accounts (gMSA)
@@ -36,6 +37,27 @@
 
 #### AS-REP Roasting 
 
+* Enforce Pre-Authentication
+    * Ensuring Kerberos pre-authentication remains enabled, its default, is the root cause fix for AS-REP Roasting. The vulnerability exists only on accounts where `DONT_REQ_PREAUTH` has been explicitly set. When an account's pre-authentication is disabled, the Key Distribution Center will respond to any `AS-REQ` with a corresponding `AS-REP` without first verifying the account's actual password. This is exactly what happened on the TryHackMe room: because preauthentication was disabled on `svc-admin`, Kerbrute's `AS-REQ` was blindly met with an `AS-REP`. After receiving the `AS-REP`, Kerbrute extracted and returned the `$krb5asrep$` hash which would later be cracked offline. Tools like `GetNPUsers.py`,  used in the room to verify Kerbrute's finding, can perform the same extraction with pre-autentication disabled.
+
+* Strong Password Policy 
+
+* Monitor 
+
+* Least Privilege 
+
+
+#### DCSync 
+
+* Enforce Kerberos Pre-Authentication
+
+
+* Strong Password Policy 
+
+
+* Monitor
+
+* Least Privilege 
 
  
 

@@ -43,6 +43,9 @@ Kerbrute returned several valid usernames, but most notably `svc-admin` and it's
 
 Although, Kerbrute automatically retrieved the AS-REP hash during enumeration, we verified the finding using Impacket's `GetNPUsers.py`, which returned the same exact hash for the `svc-admin` account 
 
+![Get-NPU](../images/attacktive-directory/GetNPUsers.jpeg)
+
+
 ---
 
 ### Exploitation (AS-REP Roasting)
@@ -96,7 +99,7 @@ After receiving the credentials for the `backup` account the next step is to fin
 These combined permissions grant the right invoke DRSUAPI's replication function (DRSGETNCChanges). We used Impacket's `secretsdump.py`, which calls this function internally, to retreive all domain credentials using only the `backup` account's credentials.
 
 
-[!Secrets-Dump](../images/attacktive-directory/secretsdump.jpeg)
+![Secrets-Dump](../images/attacktive-directory/secretsdump.jpeg)
 
 `secretsdump.py` dumped all content from NTDS.dit, including user's NTLM hashes and Kerberos long-term keys. 
 
