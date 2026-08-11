@@ -71,8 +71,28 @@
 
 
 
-#### Lessons Learned 
+### Lessons Learned 
 
+
+#### Diagnostic Isolation 
+
+* 
+
+#### Understanding the Mechanism Behind the Tool
+
+* `psexec.py`
+    * Intially, I viewed `psexec.py` as just a tool to achieve remote execution. However, after experiencing multiple failures through connection timeout's, I had to understand what it actually requires. `psexec.py` works by connecting over SMB, meaning anytime access to port 445 is restricted it will ultimately fail. After fixing the SMB issue and successfully authenticating to DC01, I failed to achieve remote code execution using `svc_backup`. Further investigation of `psexec.py` revealed that the tool's actual mechanism: it uploads an executable, registers it as a Windows service, and starts the service. In order to achieve this it requires both write access to an administrative share and the privilege to create and start a Windows service. Understanding this mechanism would've allowed me to compare the privileges of `svc_backup` against the mechanism's requirements, recognize the gap, and pivot to another attack path. 
+
+* `secretsdump.py`
+    * Understanding `secretsdump.py`'s mechanism, unlike `psexec.py`, didn't aid the attack itself. The value it provided came after when explaining mitigations. 
+
+
+The key takeaway in all of this: understanding a tool's mechanism, and not just it's purpose, makes both successes and failures explainable in advance 
+
+
+#### Credential Compromise vs Privilege 
+
+A compromised account's appearance doesn't always reflect it's actual security impact. In my Azure lab, `svc_backup` seemed like a 
 
 
 ### Future Improvements 
