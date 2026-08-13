@@ -74,10 +74,6 @@
 ### Lessons Learned 
 
 
-#### Diagnostic Isolation 
-
-* 
-
 #### Understanding the Mechanism Behind the Tool
 
 * `psexec.py`
@@ -87,12 +83,18 @@
     * Understanding `secretsdump.py`'s mechanism, unlike `psexec.py`, didn't aid the attack itself. The value it provided came after when explaining mitigations. After investigating the tool further, I came to understand that the tool performs a DSYNC attack by invoking `DRSUAPI`'s replication function `DRSGETNCChanges`. This function is responsible for replicating data between Domain Controllers when any change occurs. Upon further investigation, I realized that Active Directory's actual criteria for granting replication isn't tied to Domain Controller identity, but rather Domain Controller permissions. For instance,  The ordinary user account`backup`, was able to successfully use `secretsdump.py` because it held the two required permissions: (1) `Replicating Directory Changes`, (2) `Replicating Directory Changes All`. Understanding the mechanism of `secretsdump.py`, more precisely that it invokes `DRSGetNCChanges` replication function, allowed me to identify the specific permissions to restrict and audit, as opposed to assuming the fix was tied to identity or group membership
 
 
-The key takeaway in all of this: understanding a tool's mechanism, and not just it's purpose, makes both successes and failures explainable in advance 
+#### Infrastructure & Virtualization Constraints
+
+* My original plan for this Active Directory project included local hosting for both the attacking machine and the active directory environment. After hours of troubleshooting, it became evidently clear that the architecture mismatch (ARM64 vs. Windows Server's native x86_64) made local hosting impractical. This is because the architecture mismatch required a slow, fragile emulation layer. The added layer coupled with my hardware memory limits (8GB) led to several failures. Eventually I shifted the Active Directory Environment to the cloud. The bigger lesson is recognizing when a failure is a stuctural mismatch rather than a fixable misconfiguration. Realizing this earlier, and pivoting, could've saved me signifigant amount of time
 
 
-#### Credential Compromise vs Privilege 
+#### Cross-Verification
 
-A compromised account's appearance doesn't always reflect it's actual security impact. In my Azure lab, `svc_backup` seemed like a 
+* `dcdiag` vs `Get-SmbShare`
+    * While running diagnostics on my initial Active Directory Environment, I ran `dcdiag /q`. The diagnostic tool reported a failure, indicating that SYSVOL replication was broken. If I had stopped there instead of investigating further I would've concluded the domain controller had a real, unresolved health problem. Instead, I pulled the log entries,cross checked using `Get-SmbShare`, which confimred that SYSVOL was live and healthy. The lesson here is that tools fail to accruately describe the entire picture and it is worth checking other sources to verify. 
+* `Get-NetTCPConnection` vs `netstat`
+    * Another instance of this occured when `Get-NetTCPConnection` showed that only a IPv6 listener existed on port 445. The tool indicated that there was no IPv4 listener at all. At the time, I was troubleshooting a network filtering problem. Instead of trusting `Get-NetTCPConnection` and chasing a absent-IPv4-listener theory, I ran a second check using `netstat`. The second check confirmed that both IPv4 and IPv6 listeners were active, showing that `Get-NetTCPConnection` had ultimately under-reported the result. The second check kept the investigation focused on the right path and saved me a lot of time.
+
 
 
 ### Future Improvements 
