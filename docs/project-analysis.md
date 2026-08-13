@@ -80,7 +80,7 @@
     * Intially, I viewed `psexec.py` as just a tool to achieve remote execution. However, after experiencing multiple failures through connection timeout's, I had to understand what it actually requires. `psexec.py` works by connecting over SMB, meaning anytime access to port 445 is restricted it will ultimately fail. After fixing the SMB issue and successfully authenticating to DC01, I failed to achieve remote code execution using `svc_backup`. Further investigation of `psexec.py` revealed that the tool's actual mechanism: it uploads an executable, registers it as a Windows service, and starts the service. In order to achieve this it requires both write access to an administrative share and the privilege to create and start a Windows service. Understanding this mechanism would've allowed me to compare the privileges of `svc_backup` against the mechanism's requirements, recognize the gap, and pivot to another attack path. 
 
 * `secretsdump.py`
-    * Understanding `secretsdump.py`'s mechanism, unlike `psexec.py`, didn't aid the attack itself. The value it provided came after when explaining mitigations. After investigating the tool further, I came to understand that the tool performs a DSYNC attack by invoking `DRSUAPI`'s replication function `DRSGETNCChanges`. This function is responsible for replicating data between Domain Controllers when any change occurs. Upon further investigation, I realized that Active Directory's actual criteria for granting replication isn't tied to Domain Controller identity, but rather Domain Controller permissions. For instance,  The ordinary user account`backup`, was able to successfully use `secretsdump.py` because it held the two required permissions: (1) `Replicating Directory Changes`, (2) `Replicating Directory Changes All`. Understanding the mechanism of `secretsdump.py`, more precisely that it invokes `DRSGetNCChanges` replication function, allowed me to identify the specific permissions to restrict and audit, as opposed to assuming the fix was tied to identity or group membership
+    * Understanding `secretsdump.py`'s mechanism, unlike `psexec.py`, didn't aid the attack itself. The value it provided came after when explaining mitigations. After investigating the tool further, I came to understand that the tool performs a DSYNC attack by invoking `DRSUAPI`'s replication function `DRSGETNCChanges`. This function is responsible for replicating data between Domain Controllers when any change occurs. Upon further investigation, I realized that Active Directory's actual criteria for granting replication isn't tied to Domain Controller identity, but rather Domain Controller permissions. For instance,  The ordinary user account`svc_backup`, was able to successfully use `secretsdump.py` because it held the two required permissions: (1) `Replicating Directory Changes`, (2) `Replicating Directory Changes All`. Understanding the mechanism of `secretsdump.py`, more precisely that it invokes `DRSGetNCChanges` replication function, allowed me to identify the specific permissions to restrict and audit, as opposed to assuming the fix was tied to identity or group membership
 
 
 #### Infrastructure & Virtualization Constraints
@@ -98,3 +98,14 @@
 
 
 ### Future Improvements 
+
+* Full Domain Compromise 
+    * By artifically granting `backup` replication rights I could fully demonstrate the DCSync attack chain.
+
+* BloodHound Enumeration
+    * My Privilege Boundary Finding established that `svc_backup` lacked the permissions to properly execute `psexec.py`. Yet, it was never explored whether or not `svc_backup` had any path to further access within the domain, whether it be group memberships, ACLs, or delegation. Using `Bloodhound` against the environment would map these relationships directly, instead of stopping after one manually tested negative result. 
+
+* AS-REP Roasting against `bob`
+    * In the Independant Azure lab, one created user, `bob`, served no purpose. The lab started from an already-authenticated position, as I used Alice's known credentials to launch the Kerberooasting request. There was no step within the Azure lab that explored going from zero domain access to an authenticated foothols. In the future, we could close this gap by performing an AS-REP Roasting attack, enabling `DONT_REQ_PREAUTH` on `bob` and running `GetNPUsers.py`.
+
+
