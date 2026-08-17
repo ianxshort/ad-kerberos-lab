@@ -3,6 +3,16 @@
 ## Date: 07/31/26
 ## Difficulty: N/A — self-directed
 ## Tools:
+- Azure Portal
+- PowerShell
+- Impacket (GetUserSPNs.py, psexec.py)
+- Hashcat
+- evil-winrm
+- dig 
+- nmap
+- netstat
+- Network Manager
+
 
 ### Environment & Architecture
 
