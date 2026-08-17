@@ -22,9 +22,9 @@ We begin by enumerating the target machine using `nmap`, a network scanning util
 
 ![nmap-scan](../images/attacktive-directory/nmap-scan.jpeg)
 
-The scan returned several notable ports and services, namely ldap and Kerberos, which heavily indicate the target machine is a domain controller. The `-sC` flag, which queries services for additional information using NSE scripts, gathered important metadata. The scripts revealed the NetBIOS domain name (`THM-AD`) and DNS domain name (`spookysec.local`), both of which proved useful during subsequent enumeration.
+The scan returned several notable ports and services, namely LDAP and Kerberos, which heavily indicate the target machine is a domain controller. The `-sC` flag, which queries services for additional information using NSE scripts, gathered important metadata. The scripts revealed the NetBIOS domain name (`THM-AD`) and DNS domain name (`spookysec.local`), both of which proved useful during subsequent enumeration.
 
-We then performed further enumeration using enum4linux-ng, a common tool used to gather details from Windows and Samba system over SMB, NetBIOS and LDAP.
+We then performed further enumeration using enum4linux-ng, a common tool used to gather details from Windows and Samba systems over SMB, NetBIOS and LDAP.
 
 ![enum4linux-ng](../images/attacktive-directory/enum4linux.jpeg)
 
@@ -34,14 +34,14 @@ The tool provided further confirmation that the target machine was a Domain Cont
 
 #### Enumeration Using Kerberos 
 
-In our continued search for an inital set of credentials we utilized Kerbrute to find valid account usernames. In this lab we used  Kerbrute's `userenum` and the room's provided User list to validate usernames against the domain. In short, Userenum uses Kerberos response behaviors to validate usernames.
+In our continued search for an initial set of credentials we utilized Kerbrute to find valid account usernames. In this lab, we used  Kerbrute's `userenum` and the room's provided User list to validate usernames against the domain. In short, Userenum uses Kerberos response behaviors to validate usernames.
 
 ![Kerbute](../images/attacktive-directory/kerbrute.jpeg)
 
-Kerbrute returned several valid usernames, but most notably `svc-admin` and it's Kerberos 5 AS-REP Roast hash. Kerbrute sent an `AS-REQ` to the KDC. Because svc-admin was configured to not require Keberos pre-authentication, the KDC immediately responded with an `AS-REP` without first verifying the knowledge of the user's password. Kerbrute extracted the returned `$krb5asrep$` hash, allowing for it to be cracked offline.
+Kerbrute returned several valid usernames, but most notably `svc-admin` and it's Kerberos 5 AS-REP roast hash. Kerbrute sent an `AS-REQ` to the KDC. Because svc-admin was configured to not require Kerberos pre-authentication, the KDC immediately responded with an `AS-REP` without first verifying the knowledge of the user's password. Kerbrute extracted the returned `$krb5asrep$` hash, allowing for it to be cracked offline.
 
 
-Although, Kerbrute automatically retrieved the AS-REP hash during enumeration, we verified the finding using Impacket's `GetNPUsers.py`, which returned the same exact hash for the `svc-admin` account 
+Although Kerbrute automatically retrieved the AS-REP hash during enumeration, we verified the finding using Impacket's `GetNPUsers.py`, which returned the exact same hash for the `svc-admin` account 
 
 ![Get-NPU](../images/attacktive-directory/GetNPUsers.jpeg)
 
@@ -60,7 +60,7 @@ We used hashcat, a password cracking tool, and a provided Password list to recov
 
 ![hashcat-output](../images/attacktive-directory/svc-admin-cracked.jpeg)
 
-Hashcat successfully cracks the `$krb5asrep$` hash completing credential set
+Hashcat successfully cracks the `$krb5asrep$` hash completing the credential set
 
 - Username: svc-admin
 - Password: management2005
@@ -69,7 +69,7 @@ Hashcat successfully cracks the `$krb5asrep$` hash completing credential set
 
 ### Authenticated Enumeration
 
-Using the previously obtained credentials we attempt to enumerate any shares the domain controller might be giving out. We use the Impacket tool `smbclient.py`, which allows you to interact with remote SMB network file shares 
+Using the previously obtained credentials we attempted to enumerate any shares the domain controller might be giving out. We use the Impacket tool `smbclient.py`, which allows you to interact with remote SMB network file shares 
 
 ![SMB-Client](../images/attacktive-directory/smb-client.jpeg)
 
@@ -79,7 +79,7 @@ The server lists six different remote shares. After looking through the shares w
 
 We use the `get` command to download the credential file from the remote share
 
-Outputting the credential file to the terminal reveals the content is encoded via base 64. We can decode the encoded test using the `base64 -d` command
+Outputting the credential file to the terminal reveals the content is encoded via base 64. We can decode the encoded text using the `base64 -d` command
 
 ![Decode-Creds](../images/attacktive-directory/decode.jpeg)
 
@@ -94,9 +94,9 @@ After receiving the credentials for the `backup` account the next step is to fin
 ![Permissions-Backup](../images/attacktive-directory/backup-permissions.jpeg)
 
 - `Replicating Directory Changes`
-- `Replicating Directroy Changes All`
+- `Replicating Directory Changes All`
 
-These combined permissions grant the right invoke DRSUAPI's replication function (DRSGETNCChanges). We used Impacket's `secretsdump.py`, which calls this function internally, to retreive all domain credentials using only the `backup` account's credentials.
+These combined permissions grant the right to invoke DRSUAPI's replication function (DRSGETNCChanges). We used Impacket's `secretsdump.py`, which calls this function internally, to retrieve all domain credentials using only the `backup` account's credentials.
 
 
 ![Secrets-Dump](../images/attacktive-directory/secretsdump.jpeg)

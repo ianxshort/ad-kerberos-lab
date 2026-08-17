@@ -1,14 +1,14 @@
 ## Target: DC01 (self-built)
 ## Platform: Independent lab, Azure (personal PAYG)
-## Date:
+## Date: 07/31/26
 ## Difficulty: N/A — self-directed
 ## Tools:
 
 ### Environment & Architecture
 
-This lab environment consists of a Active Directory Domain hosted on a 2022 Windows Server Virtual Machine in Microsoft Azure. The result is a publically accessible domain controller secured via a source restricted NSG. 
+This lab environment consists of an Active Directory Domain hosted on a 2022 Windows Server Virtual Machine in Microsoft Azure. The result is a publicly accessible domain controller secured via a source restricted NSG. 
 
-This section covers the details of the AD lab infastructure: 
+This section covers the details of the AD lab infrastructure: 
 
 Resource Group: rg-ad-lab, Region: East US (worked on first attempt, no fallback needed)
 
@@ -57,7 +57,7 @@ To ensure the virtual network was reachable only from my machine, the NSG was co
 
 #### Infrastructure Provisioning Challenges 
 
-This Azure build was only reached after two earlier infrastructure build implementations failed. (1) Azure Students free tier - Failed after student account creation restrictions. (2) Local UTM - My Mac runs ARM64 architecture and Windows Server is built natively for x86_64 architecture. This added an emulation layer dedicated to translating instructions from one architecture to another in real time. This additional translation layer is inherently slow and fragile by nature, and it produced two separate failures across two different configuration attempts (Q35 chipset + UEFI firmware, i440FX chipset + legacy BIOS)
+This Azure build was only achieved after two earlier infrastructure build implementations failed. (1) Azure Students free tier - Failed after student account creation restrictions. (2) Local UTM - My Mac runs ARM64 architecture and Windows Server is built natively for x86_64 architecture. This added an emulation layer dedicated to translating instructions from one architecture to another in real time. This additional translation layer is inherently slow and fragile by nature, and it produced two separate failures across two different configuration attempts (Q35 chipset + UEFI firmware, i440FX chipset + legacy BIOS)
 
 ---
 
@@ -71,7 +71,7 @@ Verified successful domain creation on Powershell running `Get-ADDomain`
 
 ![Get-ADDomain](../images/azure-lab/domain-info.jpeg)
 
-Ran diagnostics on the domain controller and encountered `SYSVOL replication problems` which pointed to a test called `DFSREVENT` that failed. I investigated the event logs to pull the log entires associated with that failure. The first entry was an error stating the DFS replication service had failed to contact Active Directory. The second entry was a warning stating the configuration failed to update. I checked the SMB shares using the `Get-SMBShare` command and found the `SYSVOL` folder there and shared correctly.
+Ran diagnostics on the domain controller and encountered `SYSVOL replication problems` which pointed to a test called `DFSREVENT` that failed. I investigated the event logs to pull the log entries associated with that failure. The first entry was an error stating the DFS replication service had failed to contact Active Directory. The second entry was a warning stating the configuration failed to update. I checked the SMB shares using the `Get-SMBShare` command and found the `SYSVOL` folder there and shared correctly.
 
 ![Diagnostics-Troubleshoot](../images/azure-lab/dcdiag-troubleshoot.jpeg)
 
@@ -84,7 +84,7 @@ Three user accounts `alice`, `svc_backup`, and `bob` were created to represent t
 
 `alice`: A standard already-compromised low-privilege user who was used to initiate the kerberoasting attack
 
-`svc_backup`: The SPN-holding account representing a fictional back up service and target of the Kerberoasting attack. 
+`svc_backup`: The SPN-holding account representing a fictional backup service and target of the Kerberoasting attack. 
 
 > **NOTE**: Account configured with intentionally wordlist-crackable password `sunshine1!` (present in `rockyou.txt`) that satisfies AD default complexity.
 
@@ -102,7 +102,7 @@ Completed registration and verified success using `setspn` commands.
 
 ![Set-Spn](../images/azure-lab/setspn.jpeg)
 
-By registering `svc_backup` it transformed the account from a inactive account to a Kerberoastable one.
+By registering `svc_backup` it transformed the account from an inactive account to a Kerberoastable one.
 
 
 ---
@@ -137,9 +137,9 @@ dig ad.lab @57.162.245.77
 
 Before using Impacket for Kerberos Authentication I wanted to establish a diagnostic baseline using native Kerberos tooling. This way, if Impacket's Kerberos implementation failed I would know that the problem was specific to Impacket rather than the environment.
 
-In order to interact with the domain controller's Kerberos service the Kali machine needs the necessary tools. `krb5-user` installs MIT Keberos client tools, which we can use to communicate with the DC01's domain controler. In our case, the tools `kinit` and `klist` allow us to request a Ticket Granting Ticket (TGT) and view the ticket respectively. 
+In order to interact with the domain controller's Kerberos service the Kali machine needs the necessary tools. `krb5-user` installs MIT Kerberos client tools, which we can use to communicate with the DC01's domain controller. In our case, the tools `kinit` and `klist` allow us to request a Ticket Granting Ticket (TGT) and view the ticket respectively. 
 
-After installing `krb5-user` I examined the contents of `/etc/krb5.conf`, a configuration file that maps a Kerberos realm name to it's authoritative KDC. A Kerberos Realm is an administrative boundary that defines the scope of authority of a KDC. The file was populated with stock MIT Kerberos defaults, such as (`Athena.MIT.EDU`). I deleted all of the irrelevant entries, definied the realm name, and mapped the KDC to my domain controller's IP address. 
+After installing `krb5-user` I examined the contents of `/etc/krb5.conf`, a configuration file that maps a Kerberos realm name to its authoritative KDC. A Kerberos Realm is an administrative boundary that defines the scope of authority of a KDC. The file was populated with stock MIT Kerberos defaults, such as (`Athena.MIT.EDU`). I deleted all of the irrelevant entries, definied the realm name, and mapped the KDC to my domain controller's IP address. 
 
 ![rewrite-stock](../images/azure-lab/manual-rewrite.jpeg)
 
@@ -165,14 +165,14 @@ The extraction succeeded cleanly returning the `$krb5tgs$` hash for `svc_backup`
 
 With the `$krb5tgs$` hash in possesion it was time to crack it using `hashcat`. 
 
-> The extracted hash began `$krb5tgs$18$...` — etype 18 (AES256), not RC4 (my original plan). This is signifigantly more expensive to crack, which led to a slight deviation in execution
+> The extracted hash began `$krb5tgs$18$...` — etype 18 (AES256), not RC4 (my original plan). This is significantly more expensive to crack, which led to a slight deviation in execution
 
 After running 
 
 ```bash
 hashcat -m 19700 kerberoast_hash.txt /usr/share/wordlists/rockyou.txt
 ```
-A full `rockyou.txt` was projected to complete in ~8 hours. To combat time contraints I identified the password's placement using the `grep` command and created a more practical wordlist derived from the contents of `rockyou.txt`. 
+A full `rockyou.txt` was projected to complete in ~8 hours. To combat time constraints I identified the password's placement using the `grep` command and created a more practical wordlist derived from the contents of `rockyou.txt`. 
 
 ![pass-placement](../images/azure-lab/sunshine-placement.jpeg)
 
@@ -202,7 +202,7 @@ The first attempt failed due to a connection timeout indicating that the TCP han
 
 ![Failed-Nmap](../images/azure-lab/nmap444-filtered.jpeg)
 
-The port state of SMB on the domain controller was filtered, meaning `nmap` couldn't determine whether the port was open or closed because it wasn't accessible. I investigated further on the DC; `Get-NetConnectionProfile` revealed the NIC was classified as `Public`, while the `File and Printer Sharing (SMB-In)` rule was scoped to `Domain, Private` only. This meant the rule never actually applied to this connection, despite showing `Enabled: True`. I corrected the scope with `Set-NetFirewallRule -Profile Any`, which did not resolve the timeout.
+The port state of SMB on the domain controller was filtered, meaning `nmap` couldn't determine whether the port was open or closed because it wasn't accessible. I investigated further on the DC: `Get-NetConnectionProfile` revealed the NIC was classified as `Public`, while the `File and Printer Sharing (SMB-In)` rule was scoped to `Domain, Private` only. This meant the rule never actually applied to this connection, despite showing `Enabled: True`. I corrected the scope with `Set-NetFirewallRule -Profile Any`, which did not resolve the timeout.
 
 ![Firewall-Prof-Mismatch](../images/azure-lab/Firewall-prof-mismatch.jpeg)
 
@@ -211,14 +211,14 @@ After correcting the firewall rule the timeout was still unresolved. To investig
 
 ![Examine-SMB](../images/azure-lab/Examine-SMB.jpeg)
 
-I continued by resolving the unexpected IPv4 problem by running `netstat -an | findstr :445`. This revealed listeners on both IPv4 and IPv6 
+I continued by resolving the unexpected IPv4 problem by running `netstat -an | findstr :445`. This revealed listeners on both IPv4 and IPv6.
 
 With every host-side layer confirmed correct, the timeout persisted, indicating the SMB traffic was blocked somewhere outside my control. With that considered, I pivoted to WinRM (port 5985) via `evil-winrm`, which offered an alternate path to remote execution. 
 
 
-#### WinRM TroubleShoot
+#### WinRM Troubleshooting
 
-Enabling a remote Powershell required two things on the DC01: A new NSG rule permitting inbound 5985 traffic from my home IP, and the WinRM listener itself.
+Enabling a remote PowerShell required two things on DC01: a new NSG rule permitting inbound 5985 traffic from my home IP, and the WinRM listener itself.
 
 ![WinRm-NSG](../images/azure-lab/third-firewall-redacted.jpeg)
 
@@ -230,7 +230,7 @@ After changing the NSG rules and enabling WinRM I ran an nmap scan on my Kali ma
 nmap -Pn -p445,5985 57.162.245.77
 ```
 
-Port 5985 experienced the same silent timeout observed on port 445. This indicated that something between the Kali Machine and DC01 was filtering the connections. 
+Port 5985 experienced the same silent timeout observed on port 445. This indicated that something between the Kali machine and DC01 was filtering the connections. 
 
 #### Temp Hotspot & Network-level Block Bypass
 
@@ -257,7 +257,7 @@ With the network-level block bypassed using the hotspot, I attempted to achieve 
 
 `psexec.py` successfully reached DC01 and authenticated as `svc_backup` with no errors. This confirmed that the previously cracked credentials were indeed valid. Despite authentication, `psexec.py` failed to find a writable share.
 
-`psexec.py` requires write permissions on administrative shares in order to complete code execution. That is because its method of code execution is (1) Upload executable (2) register it as a Windows service (3) Start the service. `svc_backup` did not have local administrative privileges on DC01 as it was standard service account. 
+`psexec.py` requires write permissions on administrative shares in order to complete code execution. That is because its method of code execution is (1) Upload executable (2) register it as a Windows service (3) Start the service. `svc_backup` did not have local administrative privileges on DC01 as it was a standard service account. 
 
 
 
